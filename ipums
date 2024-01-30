@@ -1,0 +1,41 @@
+"""Module extracts necessary data for labor data assignment 1 from ipums cps database"""
+from pathlib import Path
+from ipumspy import IpumsApiClient, CpsExtract
+
+IPUMS_API_KEY = "59cba10d8a5da536fc06b59d4c3f35e439d640a28180c48992bad8dd"
+DOWNLOAD_DIR = Path("Data")
+
+ipums = IpumsApiClient(IPUMS_API_KEY)
+
+extract = CpsExtract(
+    ["cps1964_03s", "cps1965_03s", "cps1966_03s", "cps1967_03s", "cps1968_03s",
+    "cps1969_03s", "cps1970_03s", "cps1971_03s", "cps1972_03s", "cps1973_03s",
+    "cps1974_03s", "cps1975_03s", "cps1976_03s", "cps1977_03s", "cps1978_03s",
+    "cps1979_03s", "cps1980_03s", "cps1981_03s", "cps1982_03s", "cps1983_03s", 
+    "cps1984_03s", "cps1985_03s", "cps1986_03s", "cps1987_03s", "cps1988_03s", 
+    "cps1989_03s", "cps1990_03s", "cps1991_03s", "cps1992_03s", "cps1993_03s", 
+    "cps1994_03s", "cps1995_03s", "cps1996_03s", "cps1997_03s", "cps1998_03s", 
+    "cps1999_03s", "cps2000_03s", "cps2001_03s", "cps2002_03s", "cps2003_03s", 
+    "cps2004_03s", "cps2005_03s", "cps2006_03s", "cps2007_03s", "cps2008_03s", 
+    "cps2009_03s", "cps2010_03s", "cps2011_03s", "cps2012_03s", "cps2013_03s", 
+    "cps2014_03s", "cps2015_03s", "cps2016_03s", "cps2017_03s", "cps2018_03s", 
+    "cps2019_03s", "cps2020_03s", "cps2021_03s", "cps2022_03s", "cps2023_03s"],
+    ["YEAR", "AGE", "EDUC", "INCWAGE", "ASECWT"],
+    description = "Data Explorer: The Returns to a College Education",
+    data_format = "csv",
+    data_structure = {"rectangular": {}}
+)
+
+extract.select_cases("AGE",
+                     [21,22,23,24,25,26,27,28,29,30])
+
+extract.select_cases("EDUC",
+                     [70, 71, 72, 73, 110, 111])
+
+ipums.submit_extract(extract)
+
+if ipums.wait_for_extract(extract) == "completed":
+    ipums.download_extract(extract, DOWNLOAD_DIR)
+    print("Extract downloaded successfully!")
+else:
+    print("Extract failed to complete. Please check IPUMS for details.")

@@ -1,7 +1,0 @@
-from pathlib import Path
-from ipumspy import CpsApiClient, CpsExtract, readers, ddi  # Use CpsApiClient for CPS data
-
-IPUMS_API_KEY = "59cba10d8a5da536fc06b59d4c3f35e439d640a28180c48992bad8dd"
-DOWNLOAD_DIR = Path("/workspaces/class/Data")
-
-ipums = CpsApiClient(IPUMS_API_KEY)  # Use CpsApiClient
