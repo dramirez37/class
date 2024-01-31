@@ -5,3 +5,34 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 df = pd.read_csv("cps_00001.csv")
+
+filtered_df = df[df["INCWAGE"] > 0]
+filtered_df = filtered_df[filtered_df["INCWAGE"]< 9999998]
+filtered_df["log_INCWAGE"] = np.log(filtered_df["INCWAGE"])
+
+filtered_df["college_EDUC"] = 0
+filtered_df.loc[filtered_df["EDUC"].isin([110, 111]), "college_EDUC"] = 1
+
+mean_log_hs_df = filtered_df[filtered_df["college_EDUC"] == 0]["log_INCWAGE"].mean()
+mean_log_co_df = filtered_df[filtered_df["college_EDUC"] == 1]["log_INCWAGE"].mean()
+
+wage_gap_df = mean_log_co_df - mean_log_hs_df
+
+college_data = filtered_df[filtered_df["college_EDUC"] == 1]
+
+slope, intercept = np.polyfit(college_data["YEAR"], college_data["log_INCWAGE"], 1)
+
+sns.scatterplot(
+    x="YEAR",
+    y="log_INCWAGE",
+    data=college_data,
+)
+
+plt.plot(college_data["YEAR"], slope * college_data["YEAR"] + intercept, color='red', linestyle='--')
+
+ax = plt.gca()
+ax.set_xlabel("YEAR")
+ax.set_ylabel("Mean Log Wage")
+ax.set_title("Mean Log Wages for Young (21-30) College-Educated Workers Over Time with Line of Best Fit")
+plt.tight_layout()
+plt.show()
