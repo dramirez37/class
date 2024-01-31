@@ -203,9 +203,30 @@ BR_pred = evaluate_model_earn(BR, X_earn_train_scaled, X_earn_test_scaled, y_ear
 
 
 
+import pandas as pd
+import warnings
+warnings.filterwarnings('ignore')
+
+file_path = "C:/Users/david/Downloads/cps_00001.csv.gz"
+data = pd.read_csv(file_path, compression='gzip')
+
+data.columns
+sampling_fraction = 0.2
+random_state = 42
+
+sampled_df = data.sample(frac=sampling_fraction, random_state=random_state)
+
+features = ["YEAR", "SEX", "AGE", "RACE", "HISPAN","PAIDHOUR","EARNWEEK","HOURWAGE","UHRSWORK1","EDUC"]
+weight_variable = "EARNWT"
 
 
+df = sampled_df[features + [weight_variable]]
 
+sampled_df.head(10)
+df.head(10)
+df.isna().sum()
+
+^^^^^^^
 
 #education
 
