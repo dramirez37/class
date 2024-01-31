@@ -8,8 +8,7 @@ DOWNLOAD_DIR = Path("Data")
 ipums = IpumsApiClient(IPUMS_API_KEY)
 
 extract = CpsExtract(
-    ["cps1964_03s", "cps1965_03s", "cps1966_03s", "cps1967_03s", "cps1968_03s",
-    "cps1969_03s", "cps1970_03s", "cps1971_03s", "cps1972_03s", "cps1973_03s",
+    ["cps1968_03s", "cps1969_03s", "cps1970_03s", "cps1971_03s", "cps1972_03s", "cps1973_03s",
     "cps1974_03s", "cps1975_03s", "cps1976_03s", "cps1977_03s", "cps1978_03s",
     "cps1979_03s", "cps1980_03s", "cps1981_03s", "cps1982_03s", "cps1983_03s", 
     "cps1984_03s", "cps1985_03s", "cps1986_03s", "cps1987_03s", "cps1988_03s", 
@@ -20,17 +19,15 @@ extract = CpsExtract(
     "cps2009_03s", "cps2010_03s", "cps2011_03s", "cps2012_03s", "cps2013_03s", 
     "cps2014_03s", "cps2015_03s", "cps2016_03s", "cps2017_03s", "cps2018_03s", 
     "cps2019_03s", "cps2020_03s", "cps2021_03s", "cps2022_03s", "cps2023_03s"],
-    ["YEAR", "AGE", "EDUC", "INCWAGE", "ASECWT"],
-    description = "Data Explorer: The Returns to a College Education",
+    ["YEAR", "AGE", "LABFORCE", "NCHLT5", "ASECWT"],
+    description = "Data Explorer: Fertility and Labor Supply",
     data_format = "csv",
     data_structure = {"rectangular": {}}
 )
 
 extract.select_cases("AGE",
-                     [21,22,23,24,25,26,27,28,29,30])
-
-extract.select_cases("EDUC",
-                     [70, 71, 72, 73, 110, 111])
+                     [20,22,23,24,25,26,27,28,29,30, 31, 32, 33, 34, 35,
+                     36, 37, 38, 39, 40, 41, 42 ,43, 44, 45, 46, 47, 48, 49, 50])
 
 ipums.submit_extract(extract)
 

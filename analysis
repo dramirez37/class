@@ -1,38 +1,67 @@
-"""Analysis Portion of Data Explorer: The Returns to a College Education"""
+"""Analysis Portion of Data Explorer: Fertility and Labor Supply"""
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-df = pd.read_csv("cps_00001.csv")
+dtype = {"SEX": "category", "AGE": int, "YEAR": int, "LABFORCE":
+         int, "NCHLT5": int, "ASECWT": float}
+usecols = ["SEX", "AGE", "YEAR", "LABFORCE", "NCHLT5", "ASECWT"]
+df = pd.read_csv("cps_00002.csv.gz", compression="gzip", usecols=usecols, dtype=dtype)
+df_cleaned = df.dropna(subset=["NCHLT5"])
 
-filtered_df = df[df["INCWAGE"] > 0]
-filtered_df = filtered_df[filtered_df["INCWAGE"]< 9999998]
-filtered_df["log_INCWAGE"] = np.log(filtered_df["INCWAGE"])
+weighted_df = df[df["LABFORCE"] != 0].copy()
+weighted_df.loc[:, "LFP"] = np.where(weighted_df["LABFORCE"] == 2, 1, 0)
+weighted_df.loc[:, "LFP"] *= weighted_df["ASECWT"]
 
-filtered_df["college_EDUC"] = 0
-filtered_df.loc[filtered_df["EDUC"].isin([110, 111]), "college_EDUC"] = 1
+men_with_children = df[(df["SEX"] == '1') & (df["NCHLT5"] >= 1)]
+men_without_children = df[(df["SEX"] == '1') & (df["NCHLT5"] == 0)]
+women_with_children = df[(df["SEX"] == '2') & (df["NCHLT5"] >= 1)]
+women_without_children = df[(df["SEX"] == '2') & (df["NCHLT5"] == 0)]
 
-mean_log_hs_df = filtered_df[filtered_df["college_EDUC"] == 0]["log_INCWAGE"].mean()
-mean_log_co_df = filtered_df[filtered_df["college_EDUC"] == 1]["log_INCWAGE"].mean()
+lfp_women_with_children = women_with_children.groupby("YEAR")["LABFORCE"].mean()
+lfp_women_without_children = women_without_children.groupby("YEAR")["LABFORCE"].mean()
+lfp_men_with_children = men_with_children.groupby("YEAR")["LABFORCE"].mean()
+lfp_men_without_children = men_without_children.groupby("YEAR")["LABFORCE"].mean()
 
-wage_gap_df = mean_log_co_df - mean_log_hs_df
+lfp_by_year_sex = weighted_df.groupby(["YEAR", "SEX"])["LFP"].mean().reset_index()
 
-college_data = filtered_df[filtered_df["college_EDUC"] == 1]
+plt.figure(figsize=(12, 8))
+sns.lineplot(data=lfp_by_year_sex[lfp_by_year_sex["SEX"] == '1'], x="YEAR", y="LFP", label="Men")
+sns.lineplot(data=lfp_by_year_sex[lfp_by_year_sex["SEX"] == '2'], x="YEAR", y="LFP", label="Women")
+plt.title("Labor Force Participation Rate by Gender and Parental Status")
+plt.xlabel("Year")
+plt.ylabel("Labor Force Participation Rate")
+plt.legend(title="Category", loc="upper right")
+plt.grid(True)
+plt.show()
 
-slope, intercept = np.polyfit(college_data["YEAR"], college_data["log_INCWAGE"], 1)
+plt.figure(figsize=(10, 6))
+sns.lineplot(data=lfp_women_with_children, label="Women with Young Children")
+sns.lineplot(data=lfp_women_without_children, label="Women without Young Children")
+plt.title("Labor Force Participation Rate of Women")
+plt.xlabel("Year")
+plt.ylabel("Labor Force Participation Rate")
+plt.legend()
+plt.show()
 
-sns.scatterplot(
-    x="YEAR",
-    y="log_INCWAGE",
-    data=college_data,
-)
+plt.figure(figsize=(10, 6))
+sns.lineplot(data=lfp_men_with_children, label="Men with Young Children")
+sns.lineplot(data=lfp_men_without_children, label="Men without Young Children")
+plt.title("Labor Force Participation Rate of Men")
+plt.xlabel("Year")
+plt.ylabel("Labor Force Participation Rate")
+plt.legend()
+plt.show()
 
-plt.plot(college_data["YEAR"], slope * college_data["YEAR"] + intercept, color='red', linestyle='--')
-
-ax = plt.gca()
-ax.set_xlabel("YEAR")
-ax.set_ylabel("Mean Log Wage")
-ax.set_title("Mean Log Wages for Young (21-30) College-Educated Workers Over Time with Line of Best Fit")
-plt.tight_layout()
+plt.figure(figsize=(12, 8))
+sns.lineplot(data=lfp_men_with_children, label="Men with Young Children", linestyle='--')
+sns.lineplot(data=lfp_men_without_children, label="Men without Young Children")
+sns.lineplot(data=lfp_women_with_children, label="Women with Young Children", linestyle='-.')
+sns.lineplot(data=lfp_women_without_children, label="Women without Young Children")
+plt.title("Labor Force Participation Rate by Gender and Parental Status")
+plt.xlabel("Year")
+plt.ylabel("Labor Force Participation Rate")
+plt.legend(title="Category", loc="lower right")
+plt.grid(True)
 plt.show()
