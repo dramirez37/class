@@ -216,9 +216,8 @@ random_state = 42
 
 sampled_df = data.sample(frac=sampling_fraction, random_state=random_state)
 
-features = ["YEAR", "SEX", "AGE", "RACE", "HISPAN","PAIDHOUR","EARNWEEK","HOURWAGE","UHRSWORK1","EDUC"]
-weight_variable = "EARNWT"
-
+features = ["YEAR", "LABFORCE","SEX","AGE","NCHLT5"]
+weight_variable = "ASECWT"
 
 df = sampled_df[features + [weight_variable]]
 
