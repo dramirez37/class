@@ -223,4 +223,4 @@ y_hours_worked = df['UHRSWORK1']
 education_model = sm.OLS(exog=sm.add_constant(sm.add_constant(X_hours_worked)),endog=y_hours_worked).fit()
 print(education_model.summary())
 print(education_model.params)
-
+/Users/david/Downloads/cps_00001.csv.gz
