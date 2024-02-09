@@ -35,7 +35,6 @@ plt.ylabel("Labor Force Participation Rate")
 plt.legend(title="Category", loc="upper right")
 plt.grid(True)
 plt.show()
-
 plt.figure(figsize=(10, 6))
 sns.lineplot(data=lfp_women_with_children, label="Women with Young Children")
 sns.lineplot(data=lfp_women_without_children, label="Women without Young Children")
