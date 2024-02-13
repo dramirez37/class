@@ -8,16 +8,15 @@ dtype = {"SEX": "category", "AGE": int, "YEAR": int, "LABFORCE":
          int, "NCHLT5": int, "ASECWT": float}
 usecols = ["SEX", "AGE", "YEAR", "LABFORCE", "NCHLT5", "ASECWT"]
 df = pd.read_csv("cps_00002.csv.gz", compression="gzip", usecols=usecols, dtype=dtype)
-df_cleaned = df.dropna(subset=["NCHLT5"])
 
 weighted_df = df[df["LABFORCE"] != 0].copy()
 weighted_df.loc[:, "LFP"] = np.where(weighted_df["LABFORCE"] == 2, 1, 0)
 weighted_df.loc[:, "LFP"] *= weighted_df["ASECWT"]
 
-men_with_children = df[(df["SEX"] == '1') & (df["NCHLT5"] >= 1)]
-men_without_children = df[(df["SEX"] == '1') & (df["NCHLT5"] == 0)]
-women_with_children = df[(df["SEX"] == '2') & (df["NCHLT5"] >= 1)]
-women_without_children = df[(df["SEX"] == '2') & (df["NCHLT5"] == 0)]
+men_with_children = weighted_df[(weighted_df["SEX"] == '1') & (weighted_df["NCHLT5"] >= 1)]
+men_without_children = weighted_df[(weighted_df["SEX"] == '1') & (weighted_df["NCHLT5"] == 0)]
+women_with_children = weighted_df[(weighted_df["SEX"] == '2') & (weighted_df["NCHLT5"] >= 1)]
+women_without_children = weighted_df[(weighted_df["SEX"] == '2') & (weighted_df["NCHLT5"] == 0)]
 
 lfp_women_with_children = women_with_children.groupby("YEAR")["LABFORCE"].mean()
 lfp_women_without_children = women_without_children.groupby("YEAR")["LABFORCE"].mean()
