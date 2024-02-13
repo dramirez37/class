@@ -23,7 +23,8 @@ lfp_women_without_children = women_without_children.groupby("YEAR")["LABFORCE"].
 lfp_men_with_children = men_with_children.groupby("YEAR")["LABFORCE"].mean()
 lfp_men_without_children = men_without_children.groupby("YEAR")["LABFORCE"].mean()
 
-lfp_by_year_sex = weighted_df.groupby(["YEAR", "SEX"])["LFP"].mean().reset_index()
+lfp_by_year_sex = weighted_df.groupby(["YEAR", "SEX"])["LFP"].sum().div(weighted_df.groupby(["YEAR", "SEX"])["ASECWT"].sum()).reset_index()
+lfp_by_year_sex = lfp_by_year_sex.rename(columns={0: 'LFP'})
 
 plt.figure(figsize=(12, 8))
 sns.lineplot(data=lfp_by_year_sex[lfp_by_year_sex["SEX"] == '1'], x="YEAR", y="LFP", label="Men")
