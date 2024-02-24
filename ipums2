@@ -23,10 +23,6 @@ extract.select_cases("AGE",
 extract.select_cases("PAIDHOUR",
                      [1,2])
 
-extract.add_condition("(EARNWEEK != .)")
-extract.add_condition("(HOURWAGE != .)")
-extract.add_condition("(UHRSWORK1 != .)")
-
 ipums.submit_extract(extract)
 
 if ipums.wait_for_extract(extract) == "completed":
