@@ -1,0 +1,88 @@
+"""Analysis Portion of Data Explorer: Demographics of the Low-Wage Workforce"""
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import seaborn as sns
+
+# Define data types for columns
+dtype = {"SEX": "category", "AGE": int, "YEAR": int, "HISPAN": "category", "PAIDHOUR": "category", "RACE": "category", 
+         "EARNWT": float, "EDUC": "category", "UHRSWORK1": int, "EARNWEEK": float, "HOURWAGE": float}
+
+# Specify columns to use
+usecols = ["SEX", "AGE", "YEAR", "HISPAN", "PAIDHOUR", "RACE", "EARNWT", "EDUC", "UHRSWORK1", "EARNWEEK", "HOURWAGE"]
+
+# Read the CSV file into a DataFrame
+df = pd.read_csv("cps_00003.csv.gz", compression="gzip", usecols=usecols, dtype=dtype)
+
+# Drop rows with missing values in specific columns
+df = df.dropna(subset=['EARNWEEK', 'HOURWAGE', 'UHRSWORK1'])
+
+# Filter out rows with unrealistic values
+df = df[
+    (df['EARNWEEK'] > 0) & (df['EARNWEEK'] < 9999.99) &
+    (df['HOURWAGE'] > 0) & (df['HOURWAGE'] < 99) &
+    (df['UHRSWORK1'] > 0) & (df['UHRSWORK1'] < 997)
+]
+
+# Create hourly wage variable
+df['HOURLYWAGE'] = np.where(df['PAIDHOUR'] == 1, df['EARNWEEK'] / df['UHRSWORK1'], df['HOURWAGE'])
+
+# Create low-wage worker indicator variable
+df['LOW_WAGE_WORKER'] = np.where(df['HOURLYWAGE'] <= 15, 1, 0)
+
+# Recode race variable
+df['RECODED_RACE'] = np.select([df['HISPAN'] == 0,
+                                df['RACE'] == 651,
+                                df['RACE'] == 200,
+                                df['RACE'] == 100],
+                               ['Non-Hispanic Asian',
+                                'Non-Hispanic Asian',
+                                'Non-Hispanic Black',
+                                'Non-Hispanic White'],
+                               default='Hispanic')
+
+# Recode education variable
+df['RECODED_EDUC'] = np.select([
+    df['EDUC'].astype(int) <= 60,
+    ((df['EDUC'].astype(int) >= 70) & (df['EDUC'].astype(int) <= 73)),
+    ((df['EDUC'].astype(int) >= 80) & (df['EDUC'].astype(int) <= 100)),
+    df['EDUC'].astype(int) >= 110
+], 
+['Less than High School', 'High School', 'Some College', 'College'])
+
+# Statistical analysis
+# Fraction of men and women in low-wage workforce at each age
+plt.figure(figsize=(10, 6))
+sns.lineplot(data=df, x='AGE', y='LOW_WAGE_WORKER', hue='SEX', estimator='mean', ci=None)
+plt.title('Fraction of Men and Women in Low-Wage Workforce by Age')
+plt.xlabel('Age')
+plt.ylabel('Fraction in Low-Wage Workforce (%)')
+plt.legend(title="Sex", labels=["Men", "Women"], loc="upper right")
+plt.gca().yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1.0))
+plt.show()
+
+# Fraction of workers in each race group in low-wage workforce at each age
+plt.figure(figsize=(10, 6))
+race_grouped = df.groupby(['AGE', 'RECODED_RACE'])[['LOW_WAGE_WORKER', 'EARNWT']].sum()
+race_grouped['LOW_WAGE_WORKER_FRACTION'] = ((race_grouped['LOW_WAGE_WORKER'] / race_grouped['EARNWT']) * 100) * 100  # Multiply by 100 twice to shift 2 decimal points
+race_grouped = race_grouped.reset_index()
+sns.lineplot(data=race_grouped, x='AGE', y='LOW_WAGE_WORKER_FRACTION', hue='RECODED_RACE')
+plt.title('Fraction of Workers in Low-Wage Workforce by Race and Age')
+plt.xlabel('Age')
+plt.ylabel('Fraction in Low-Wage Workforce (%)')
+plt.gca().yaxis.set_major_formatter(ticker.PercentFormatter(xmax=100))  # Set formatter to display percentages
+plt.legend(title="Race", loc="upper right")  # Add legend
+plt.show()
+
+# Fraction of workers in low-wage workforce by education and age
+plt.figure(figsize=(10, 6))
+educ_grouped = df.groupby(['AGE', 'RECODED_EDUC'])[['LOW_WAGE_WORKER', 'EARNWT']].sum()
+educ_grouped['LOW_WAGE_WORKER_FRACTION'] = ((educ_grouped['LOW_WAGE_WORKER'] / educ_grouped['EARNWT']) * 100) * 100  # Multiply by 100 twice to shift 2 decimal points
+educ_grouped = educ_grouped.reset_index()
+sns.lineplot(data=educ_grouped, x='AGE', y='LOW_WAGE_WORKER_FRACTION', hue='RECODED_EDUC')
+plt.title('Fraction of Workers in Low-Wage Workforce by Education and Age')
+plt.xlabel('Age')
+plt.ylabel('Fraction in Low-Wage Workforce (%)')
+plt.gca().yaxis.set_major_formatter(ticker.PercentFormatter(xmax=100))  # Set formatter to display percentages
+plt.show()
