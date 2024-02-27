@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 import seaborn as sns
+from scipy import stats
 
 dtype = {"SEX": "category", "AGE": int, "YEAR": int, "HISPAN": "category", "PAIDHOUR": "category", "RACE": "category",
          "EARNWT": float, "EDUC": "category", "UHRSWORK1": int, "EARNWEEK": float, "HOURWAGE": float}
@@ -50,7 +51,6 @@ race_grouped['LOW_WAGE_WORKER_FRACTION'] = (race_grouped['LOW_WAGE_WORKER'] / to
 race_grouped = race_grouped.reset_index()
 df_filtered = race_grouped[race_grouped['RECODED_RACE'] != 'All Other']
 
-
 educ_grouped = df.groupby(['AGE', 'RECODED_EDUC'])[['LOW_WAGE_WORKER', 'EARNWT']].sum()
 total_weighted_low_wage_workers_educ = educ_grouped.groupby('AGE')['LOW_WAGE_WORKER'].sum()
 educ_grouped['LOW_WAGE_WORKER_FRACTION'] = (educ_grouped['LOW_WAGE_WORKER'] / total_weighted_low_wage_workers_educ) * 100
@@ -71,7 +71,7 @@ plt.title('Fraction of Workers in Low-Wage Workforce by Race and Age')
 plt.xlabel('Age')
 plt.ylabel('Fraction in Low-Wage Workforce (%)')
 plt.gca().yaxis.set_major_formatter(ticker.PercentFormatter(xmax=100))
-plt.legend(title="Race", loc="upper right")
+plt.legend(title="Race", loc="upper center")
 plt.show()
 
 plt.figure(figsize=(10, 6))
@@ -80,5 +80,5 @@ plt.title('Fraction of Workers in Low-Wage Workforce by Education and Age')
 plt.xlabel('Age')
 plt.ylabel('Fraction in Low-Wage Workforce (%)')
 plt.gca().yaxis.set_major_formatter(ticker.PercentFormatter(xmax=100))
-plt.legend(title="Education", loc="upper right")
+plt.legend(title="Education", loc="upper left")
 plt.show()
