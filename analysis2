@@ -4,7 +4,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 import seaborn as sns
-from scipy import stats
 
 dtype = {"SEX": "category", "AGE": int, "YEAR": int, "HISPAN": "category", "PAIDHOUR": "category", "RACE": "category",
          "EARNWT": float, "EDUC": "category", "UHRSWORK1": int, "EARNWEEK": float, "HOURWAGE": float}
