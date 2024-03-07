@@ -1,0 +1,77 @@
+library(tidyverse)
+library(readr)
+library(scales)
+
+data <- read_csv("/workspaces/class/cps_00006.csv.gz")
+
+colnames(data) <- tolower(colnames(data))
+data <- data %>%
+  filter((age >= 16) & (age <= 69), year == 2021, (paidhour == 1) | (paidhour == 2)) %>%
+  mutate(racetype = 1 * ((race == 100) & (hispan == 0)) +
+           2 * ((race == 200) & (hispan == 0)) +
+           3 * ((race == 651) & (hispan == 0)) +
+           4 * (hispan > 0),
+         racetype = if_else(racetype == 0, 5, racetype),
+         eductype = 1 * (educ <= 60) +
+           2 * ((educ >= 70) & (educ <= 73)) +
+           3 * ((educ >= 80) & (educ <= 100)) +
+           4 * (educ >= 110)) %>%
+  mutate(
+    hourlywage = case_when(
+      (earnweek > 0) & (earnweek < 9999.99) & (uhrswork1 > 0) & (uhrswork1 < 997) & (paidhour == 1) ~ earnweek / uhrswork1,
+      (hourwage > 0) & (hourwage < 99) & (paidhour == 2) ~ hourwage,
+      TRUE ~ NA_real_
+    ),
+    low = if_else(hourlywage < 15, 1, 0)
+  )
+
+sex_data <- data %>%
+  group_by(age, sex) %>%
+  summarize(low_mean = weighted.mean(low, w = earnwt, na.rm = TRUE), .groups = 'drop')
+
+race_data <- data %>%
+  filter(racetype != 5) %>%
+  group_by(age, racetype) %>%
+  summarize(low_mean = weighted.mean(low, w = earnwt, na.rm = TRUE), .groups = 'drop')
+
+educ_data <- data %>%
+  group_by(age, eductype) %>%
+  summarize(low_mean = weighted.mean(low, w = earnwt, na.rm = TRUE), .groups = 'drop')
+
+graph1 <- ggplot(sex_data, aes(x = age, y = low_mean, color = factor(sex))) +
+  geom_point() +
+  geom_line() +
+  labs(title = "Fraction of Men and Women in Low-Wage Workforce by Age",
+       x = "Age",
+       y = "Fraction in Low-Wage Workforce") +
+  scale_x_continuous(limits = c(15, 70), breaks = seq(from = 20, to = 70, by = 10)) +
+  scale_y_continuous(labels = percent_format(scale = 100), limits = c(0, 1), breaks = seq(from = 0, to = 1, by = 0.2)) +
+  scale_color_discrete(labels = c("Men", "Women"), name = "") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom")
+
+
+graph2 <- ggplot(race_data, aes(x = age, y = low_mean, color = factor(racetype))) +
+  geom_point() +
+  geom_line() +
+  labs(title = "Fraction of Workers in Low-Wage Workforce by Race and Age",
+       x = "Age",
+       y = "Fraction in Low-Wage Workforce") +
+  scale_x_continuous(limits = c(15, 70), breaks = seq(from = 20, to = 70, by = 10)) +
+  scale_y_continuous(labels = percent_format(scale = 100), limits = c(0, 1), breaks = seq(from = 0, to = 1, by = 0.2)) +
+  scale_color_discrete(labels = c("White", "Black", "Asian", "Hispanic"), name = "") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom")
+
+graph3 <- ggplot(educ_data, aes(x = age, y = low_mean, color = factor(eductype))) +
+  geom_point() +
+  geom_line() +
+  labs(title = "Fraction of Workers in Low-Wage Workforce by Education and Age",
+       x = "Age",
+       y = "Fraction in Low-Wage Workforce") +
+  scale_x_continuous(limits = c(15, 70), breaks = seq(from = 20, to = 70, by = 10)) +
+  scale_y_continuous(labels = percent_format(scale = 100), limits = c(0, 1), breaks = seq(from = 0, to = 1, by = 0.2)) +
+  scale_color_discrete(labels = c("Less than High School", "High School", "Some College", "College"), name = "") +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom")
+
+ggsave("graph1.png", graph1)
+ggsave("graph2.png", graph2)
+ggsave("graph3.png", graph3)
