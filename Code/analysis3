@@ -1,0 +1,102 @@
+import pandas as pd
+
+file_path = '/workspaces/class/Data/cps_00007.csv.gz'
+df = pd.read_csv(file_path)
+
+filtered_df = df[(df['AGE'] >= 16) & (df['AGE'] <= 64)
+                 & (df['WSREGSHFT'].isin([1, 2]))
+                 & (df['PAIDHOUR'].isin([1, 2]))
+                 & (df['EARNWEEK'] > 0) & (df['EARNWEEK'] < 9999.99)
+                 & (df['UHRSWORK1'] > 0) & (df['UHRSWORK1'] < 997)
+                 & ((df['HOURWAGE'] > 0) & (df['HOURWAGE'] < 99) | (df['PAIDHOUR'] == 1))]
+
+
+filtered_df['CALC_HOURWAGE'] = filtered_df.apply(
+    lambda row: row['EARNWEEK'] / row['UHRSWORK1'] if row['PAIDHOUR'] == 1 else row['HOURWAGE'], axis=1)
+
+
+filtered_df['IRREG_SHIFT'] = filtered_df['WSREGSHFT'].apply(lambda x: 1 if x == 2 else 0)
+
+def recode_educ(educ):
+    if educ <= 60:
+        return 1
+    elif 70 <= educ <= 73:
+        return 2
+    elif 80 <= educ <= 100:
+        return 3
+    elif educ >= 110:
+        return 4
+
+filtered_df['RECODED_EDUC'] = filtered_df['EDUC'].apply(recode_educ)
+
+def recode_age(age):
+    if 16 <= age <= 20:
+        return 1
+    elif 21 <= age <= 30:
+        return 2
+    elif 31 <= age <= 40:
+        return 3
+    elif 41 <= age <= 50:
+        return 4
+    elif 51 <= age <= 64:
+        return 5
+
+filtered_df['RECODED_AGE'] = filtered_df['AGE'].apply(recode_age)
+
+education_irregular_shifts = filtered_df.groupby('RECODED_EDUC')['IRREG_SHIFT'].mean().reset_index()
+education_irregular_shifts.columns = ['Education Group', 'Fraction with Irregular Shifts']
+education_irregular_shifts['Education Group'] = education_irregular_shifts['Education Group'].map({
+    1: 'Less than High School',
+    2: 'High School',
+    3: 'Some College',
+    4: 'College'
+})
+
+age_irregular_shifts = filtered_df.groupby('RECODED_AGE')['IRREG_SHIFT'].mean().reset_index()
+age_irregular_shifts.columns = ['Age Group', 'Fraction with Irregular Shifts']
+age_irregular_shifts['Age Group'] = age_irregular_shifts['Age Group'].map({
+    1: '16-20',
+    2: '21-30',
+    3: '31-40',
+    4: '41-50',
+    5: '51-64'
+})
+
+wage_by_educ_shift = filtered_df.groupby(['RECODED_EDUC', 'IRREG_SHIFT'])['CALC_HOURWAGE'].mean().unstack()
+wage_by_educ_shift.columns = ['Regular Shift Wage', 'Irregular Shift Wage']
+wage_by_educ_shift.index = wage_by_educ_shift.index.map({
+    1: 'Less than High School',
+    2: 'High School',
+    3: 'Some College',
+    4: 'College'
+})
+
+specified_occupations = {95: 'Registered Nurse', 276: 'Cashiers', 436: 'Cooks', 804: 'Truck Drivers'}
+occupation_irregular_shifts = filtered_df[filtered_df['OCC1990'].isin(specified_occupations.keys())]
+occupation_irregular_shifts_fraction = occupation_irregular_shifts.groupby('OCC1990')['IRREG_SHIFT'].mean().reset_index()
+occupation_irregular_shifts_fraction['OCC1990'] = occupation_irregular_shifts_fraction['OCC1990'].map(specified_occupations)
+occupation_irregular_shifts_fraction.columns = ['Occupation', 'Fraction with Irregular Shifts']
+
+wage_by_occupation_shift = occupation_irregular_shifts.groupby(['OCC1990', 'IRREG_SHIFT'])['CALC_HOURWAGE'].mean().unstack()
+wage_by_occupation_shift.columns = ['Regular Shift Wage', 'Irregular Shift Wage']
+wage_by_occupation_shift.index = wage_by_occupation_shift.index.map(specified_occupations)
+
+print("Fraction of Workers in Each Education Group with Irregular Shifts:")
+print(education_irregular_shifts)
+print("\n")
+
+print("Fraction of Workers in Each Age Group with Irregular Shifts:")
+print(age_irregular_shifts)
+print("\n")
+
+print("Mean Hourly Wage Rate by Education Group and Shift Type:")
+print(wage_by_educ_shift)
+print("\n")
+
+print("Fraction of Workers with Irregular Shifts in Specified Occupations:")
+print(occupation_irregular_shifts_fraction)
+print("\n")
+
+print("Mean Hourly Wage Rate by Occupation and Shift Type:")
+print(wage_by_occupation_shift)
+print("\n")

@@ -1,0 +1,68 @@
+# Load necessary libraries
+library(tidyverse)
+library(survey)
+
+# Load the dataset
+data <- read_csv("/workspaces/class/Data/cps_00007.csv.gz")
+
+# Data preprocessing, calculation, and recoding
+data_processed <- data %>%
+  filter(age >= 16 & age <= 64, paidhour %in% c(1, 2), !is.na(hourlywage)) %>%
+  mutate(
+    hourlywage = case_when(
+      paidhour == 1 & earnweek > 0 & earnweek < 9999.99 & uhrswork1 > 0 & uhrswork1 < 997 ~ earnweek / uhrswork1,
+      paidhour == 2 & hourwage > 0 & hourwage < 99 ~ hourwage,
+      TRUE ~ NA_real_
+    ),
+    is_irregular = if_else(wsregshft == 1, 1, 0),
+    educ_group = case_when(
+      educ <= 60 ~ "Less than High School",
+      educ >= 70 & educ <= 73 ~ "High School",
+      educ >= 80 & educ <= 100 ~ "Some College",
+      educ >= 110 ~ "College"
+    ),
+    age_group = case_when(
+      age >= 16 & age <= 20 ~ "16-20",
+      age >= 21 & age <= 30 ~ "21-30",
+      age >= 31 & age <= 40 ~ "31-40",
+      age >= 41 & age <= 50 ~ "41-50",
+      age >= 51 & age <= 64 ~ "51-64"
+    )
+  ) %>%
+  filter(!is.na(hourlywage))
+
+# Setup survey design
+design <- svydesign(ids = ~1, data = data_processed, weights = ~earnwt)
+
+# Directory for output files
+output_dir <- "/workspaces/class/Graphs"
+
+# Ensure the output directory exists
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
+}
+
+# Statistical analysis and saving outputs
+
+# 1. Fraction of workers in each education group who have irregular work shifts
+educ_irregular <- svyglm(is_irregular ~ educ_group, design, family = quasibinomial())
+write.csv(summary(educ_irregular)$coefficients, file = paste0(output_dir, "/educ_irregular_summary.csv"))
+
+# 2. Fraction of workers in each age group who have irregular work shifts
+age_irregular <- svyglm(is_irregular ~ age_group, design, family = quasibinomial())
+write.csv(summary(age_irregular)$coefficients, file = paste0(output_dir, "/age_irregular_summary.csv"))
+
+# 3. Mean hourly wage rate of workers who have regular and irregular work shifts, by education group
+educ_wage <- svyby(~hourlywage, ~educ_group + is_irregular, design, svymean)
+write.csv(educ_wage, file = paste0(output_dir, "/educ_wage.csv"))
+
+# 4. Fraction of workers who have irregular work shifts in each of the four specified occupations
+selected_occupations <- data_processed %>%
+  filter(occ1990 %in% c(95, 276, 436, 804))
+selected_design <- svydesign(ids = ~1, data = selected_occupations, weights = ~earnwt)
+occupation_irregular <- svyglm(is_irregular ~ factor(occ1990), selected_design, family = quasibinomial())
+write.csv(summary(occupation_irregular)$coefficients, file = paste0(output_dir, "/occupation_irregular_summary.csv"))
+
+# 5. Mean hourly wage rate of workers who have regular and irregular work shifts for each of the four occupations
+occupation_wage <- svyby(~hourlywage, ~factor(occ1990) + is_irregular, selected_design, svymean)
+write.csv(occupation_wage, file = paste0(output_dir, "/occupation_wage.csv"))
