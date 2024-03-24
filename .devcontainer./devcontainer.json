@@ -1,0 +1,11 @@
+{
+    "name": "R",
+    "image": "rocker/rstudio",
+    "forwardPorts": [8787],
+    "postCreateCommand": "install2.r --error --skipinstalled tidyverse survey"
+}
+{
+    "name": "Python",
+    "image": "continuumio/miniconda3",
+    "postCreateCommand": "conda install --yes numpy pandas matplotlib seaborn scikit-learn"
+}
