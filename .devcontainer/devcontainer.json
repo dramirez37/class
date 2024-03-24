@@ -1,0 +1,13 @@
+{
+	"image": "mcr.microsoft.com/devcontainers/universal:2",
+	"features": {
+		"ghcr.io/rocker-org/devcontainer-features/r-apt:0": {
+			"useTesting": true,
+			"vscodeRSupport": "minimal"
+		},
+		"ghcr.io/rocker-org/devcontainer-features/rstudio-server:0": {
+			"singleUser": true,
+			"version": "stable"
+		}
+	}
+}
