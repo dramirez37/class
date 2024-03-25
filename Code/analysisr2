@@ -1,68 +1,140 @@
-# Load necessary libraries
 library(tidyverse)
-library(survey)
+library(magrittr)
 
-# Load the dataset
-data <- read_csv("/workspaces/class/Data/cps_00007.csv.gz")
+options(dplyr.print_max = 1e9)
 
-# Data preprocessing, calculation, and recoding
-data_processed <- data %>%
-  filter(age >= 16 & age <= 64, paidhour %in% c(1, 2), !is.na(hourlywage)) %>%
-  mutate(
-    hourlywage = case_when(
-      paidhour == 1 & earnweek > 0 & earnweek < 9999.99 & uhrswork1 > 0 & uhrswork1 < 997 ~ earnweek / uhrswork1,
-      paidhour == 2 & hourwage > 0 & hourwage < 99 ~ hourwage,
-      TRUE ~ NA_real_
-    ),
-    is_irregular = if_else(wsregshft == 1, 1, 0),
-    educ_group = case_when(
-      educ <= 60 ~ "Less than High School",
-      educ >= 70 & educ <= 73 ~ "High School",
-      educ >= 80 & educ <= 100 ~ "Some College",
-      educ >= 110 ~ "College"
-    ),
-    age_group = case_when(
-      age >= 16 & age <= 20 ~ "16-20",
-      age >= 21 & age <= 30 ~ "21-30",
-      age >= 31 & age <= 40 ~ "31-40",
-      age >= 41 & age <= 50 ~ "41-50",
-      age >= 51 & age <= 64 ~ "51-64"
-    )
-  ) %>%
-  filter(!is.na(hourlywage))
-
-# Setup survey design
-design <- svydesign(ids = ~1, data = data_processed, weights = ~earnwt)
-
-# Directory for output files
 output_dir <- "/workspaces/class/Graphs"
+if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-# Ensure the output directory exists
-if (!dir.exists(output_dir)) {
-  dir.create(output_dir, recursive = TRUE)
+data <- read_csv("/workspaces/class/Data/cps_00008.csv.gz")
+colnames(data) <- tolower(colnames(data))
+
+data <- data %>%
+  filter((age >= 16) & (age <= 64),
+         (paidhour == 1) | (paidhour == 2)) %>%
+  mutate(educgroup = 1 * (educ <= 60) +
+           2 * ((educ >= 70) & (educ <= 73)) +
+           3 * ((educ >= 80) & (educ <= 100)) +
+           4 * (educ >= 110))
+table(data$educ, data$educgroup)
+
+data <- data %>%
+  mutate(
+         hourlywage = case_when(
+                                (earnweek > 0) & (earnweek < 9999.99) &
+                                  (uhrswork1 > 0) & (uhrswork1 < 997) &
+                                  (paidhour == 1) ~ earnweek / uhrswork1,
+                                (hourwage > 0) & (hourwage < 99) & (paidhour == 2) ~ hourwage,
+                                TRUE ~ NA_real_),
+         log_hourlywage = log(hourlywage)) %>%
+  filter(!is.na(log_hourlywage))
+
+summarize_by_group <- function(data, variable_group, variable_values, wt) {
+
+  var_group_sym <- rlang::sym(variable_group)
+  var_values_sym <- rlang::sym(variable_values)
+  wt_sym <- rlang::sym(wt)
+
+  data <- data %>% mutate(!!var_group_sym := as.character(!!var_group_sym))
+
+  data_temp <- data %>%
+    select(!!var_group_sym, !!var_values_sym, !!wt_sym) %>%
+    na.omit()
+
+  data_temp_group <- data_temp %>%
+    group_by(!!var_group_sym) %>%
+    summarize(mean = weighted.mean(!!var_values_sym, w = !!wt_sym, na.rm = TRUE),
+              freq = sum(!!wt_sym, na.rm = TRUE),
+              n = n(), .groups = 'drop')
+
+  data_temp_total <- summarize(data_temp, 
+                               mean = weighted.mean(!!var_values_sym, w = !!wt_sym, na.rm = TRUE),
+                               freq = sum(!!wt_sym, na.rm = TRUE),
+                               n = n()) %>%
+    mutate(!!var_group_sym := "Total")
+
+  out <- bind_rows(data_temp_group, data_temp_total)
+
+  return(out)
 }
 
-# Statistical analysis and saving outputs
+summarize_by_group(data, "paidhour", "hourlywage", wt = "earnwt")
 
-# 1. Fraction of workers in each education group who have irregular work shifts
-educ_irregular <- svyglm(is_irregular ~ educ_group, design, family = quasibinomial())
-write.csv(summary(educ_irregular)$coefficients, file = paste0(output_dir, "/educ_irregular_summary.csv"))
+data <- data %>%
+  filter(wsregshft <= 2) %>%
+  mutate(agegroup = case_when(
+    (age >= 16) & (age <= 20) ~ 1,
+    (age >= 21) & (age <= 30) ~ 2,
+    (age >= 31) & (age <= 40) ~ 3,
+    (age >= 41) & (age <= 50) ~ 4,
+    (age >= 51) & (age <= 64) ~ 5,
+    TRUE ~ NA_real_
+  ),
+  irregular = if_else(wsregshft == 1, 1, 0),
+  goodocc   = if_else(occ1990 %in% c(95, 276, 436, 804), 1, 0))
 
-# 2. Fraction of workers in each age group who have irregular work shifts
-age_irregular <- svyglm(is_irregular ~ age_group, design, family = quasibinomial())
-write.csv(summary(age_irregular)$coefficients, file = paste0(output_dir, "/age_irregular_summary.csv"))
 
-# 3. Mean hourly wage rate of workers who have regular and irregular work shifts, by education group
-educ_wage <- svyby(~hourlywage, ~educ_group + is_irregular, design, svymean)
-write.csv(educ_wage, file = paste0(output_dir, "/educ_wage.csv"))
+summarize_by_group(data, "educgroup", "irregular", wt = "wssuppwt")
+summarize_by_group(data, "agegroup", "irregular", wt = "wssuppwt")
 
-# 4. Fraction of workers who have irregular work shifts in each of the four specified occupations
-selected_occupations <- data_processed %>%
-  filter(occ1990 %in% c(95, 276, 436, 804))
-selected_design <- svydesign(ids = ~1, data = selected_occupations, weights = ~earnwt)
-occupation_irregular <- svyglm(is_irregular ~ factor(occ1990), selected_design, family = quasibinomial())
-write.csv(summary(occupation_irregular)$coefficients, file = paste0(output_dir, "/occupation_irregular_summary.csv"))
+table_double_means <- function(data, variable_a, variable_b, variable_values, wt) {
+  data_temp <- data[ , c(variable_a, variable_b, variable_values, wt), drop = FALSE] %>%
+    na.omit()
+  names(data_temp) <- c("var_a", "var_b", "var_values", "var_wt")
+  agg_double <- function(data, replace_var_a = NULL, replace_var_b = NULL) {
+    if (!is.null(replace_var_a)) { data <- data %>%
+        mutate(var_a = replace_var_a)
+    }
+    if (!is.null(replace_var_b)) {
+      data <- data %>% 
+        mutate(var_b = replace_var_b)
+    }
 
-# 5. Mean hourly wage rate of workers who have regular and irregular work shifts for each of the four occupations
-occupation_wage <- svyby(~hourlywage, ~factor(occ1990) + is_irregular, selected_design, svymean)
-write.csv(occupation_wage, file = paste0(output_dir, "/occupation_wage.csv"))
+    data <- data %>%
+      group_by(var_a, var_b) %>%
+      summarize(var_mean = weighted.mean(var_values, w = var_wt)) %>%
+      ungroup() %>%
+      mutate(across(c(var_a, var_b), as.character))
+    return(data)
+  }
+
+  data_double <- data_temp %>%
+    agg_double()
+  data_marginal_a <- data_temp %>%
+    agg_double(replace_var_b = "Total")
+  data_marginal_b <- data_temp %>%
+    agg_double(replace_var_a = "Total")
+  data_grand_mean <- data_temp %>%
+    agg_double(replace_var_a = "Total", replace_var_b = "Total")
+  table_double <- data_double %>%
+    bind_rows(data_marginal_a,
+              data_marginal_b,
+              data_grand_mean) %>%
+    pivot_wider(names_from = var_b, names_prefix = "var_b_", values_from = var_mean)
+
+  names(table_double) <- gsub("var_b", variable_b, names(table_double), fixed = TRUE)
+  names(table_double)[1] <- variable_a
+  return(table_double)
+}
+
+tabulate_double_means(data, "educgroup", "irregular", "log_hourlywage", "earnwt")
+
+occupations <- c("registered nurse" = 95,
+                 "cashiers" = 276,
+                 "cooks" = 436,
+                 "truck drivers" = 804)
+occupations_tibble <- tibble(occupations, names(occupations)) %>%
+  rename(occ1990 = occupations,
+         occupation=`names(occupations)`) %>%
+  mutate(occ1990 = as.character(occ1990))
+mutate(occ1990 = as.character(occ1990))
+
+summarize_by_group(data %>% filter(goodocc == 1),
+                   "occ1990", "irregular", wt = "wssuppwt") %>%
+  left_join(occupations_tibble) %>%
+  relocate(occ1990, occupation)
+
+tabulate_double_means(data %>% filter(goodocc == 1),
+                      "occ1990", "irregular", "log_hourlywage", "earnwt") %>%
+  left_join(occupations_tibble) %>%
+  relocate(occ1990, occupation)
