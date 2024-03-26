@@ -1,0 +1,67 @@
+library(tidyverse)
+
+options(dplyr.print_max = 1e9)
+
+data <- readr::read_csv("/workspaces/class/Data/usa_00001.csv.gz")
+colnames(data) <- tolower(colnames(data))
+
+data <- data %>%
+  filter(year == 2019,
+         school == 1,
+         (age >= 21) & (age <= 30),
+         educ == 10,
+         (incwage > 0) & (incwage < 999998)) %>%
+  mutate(lannual = log(incwage))
+
+data %>%
+  count(degfield)
+data <- data %>%
+  group_by(degfield) %>%
+  mutate(nobs = n()) %>%
+  filter(nobs >= 300)
+
+data %>%
+  count(degfield)
+
+data %>%
+  group_by(degfield) %>%
+  summarize(lannual_mean = weighted.mean(lannual, w = perwt, na.rm = TRUE)) %>%
+  arrange(desc(lannual_mean))
+
+data <- data %>%
+  mutate(female = (sex == 2))
+
+data_gender <- data %>%
+  mutate(lannual_male = if_else(female == 0, lannual, NA_real_),
+         lannual_female = if_else(female == 1, lannual, NA_real_)) %>%
+  group_by(degfield) %>%
+  summarize(across(c(lannual_male, lannual_female, female),
+                   ~ weighted.mean(.x, w = perwt, na.rm = TRUE))) %>%
+  mutate(gender_gap = lannual_male - lannual_female)
+
+data %>%
+  group_by(degfield, female) %>%
+  summarize(freq = sum(perwt, na.rm = TRUE)) %>%
+  pivot_wider(names_from = female, names_prefix = "female_", values_from = freq)
+
+cor(data_gender$lannual_male, data_gender$lannual_female)
+
+data_gender %>%
+  select(degfield, gender_gap) %>%
+  arrange(desc(gender_gap))
+
+ggplot(data_gender, aes(x = female, y = lannual_male)) +
+  geom_point()
+
+ggplot(data_gender, aes(x = female, y = lannual_male)) +
+  geom_point() +
+  labs(title = "Male Earnings and Femaleness of Field",
+       x = "Percent Female in Field",
+       y = "Log Annual Earnings") +
+  scale_x_continuous(limits = c(0.18, 1),
+                     breaks = seq(from = 0.2, to = 1, by = 0.2)) +
+  scale_y_continuous(limits = c(10.2, 11),
+                     breaks = seq(from = 10.2, to = 11, by = 0.2)) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggsave("/workspaces/class/Graphs/Data Explorer 6-1 Tidyverse.pdf")
