@@ -60,7 +60,6 @@ table_1 = filtered_df.groupby('RECODED_EDUC')['IRREG_SHIFT'].mean().reset_index(
 table_1_path = '/workspaces/class/Graphs/table_1.csv'
 table_1.to_csv(table_1_path, index=False)
 
-# Analysis 2: Fraction of workers in each age group who have irregular work shifts
 table_2 = filtered_df.groupby('RECODED_AGE')['IRREG_SHIFT'].mean().reset_index()
 table_2_path = '/workspaces/class/Graphs/table_2.csv'
 table_2.to_csv(table_2_path, index=False)
