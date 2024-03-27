@@ -1,140 +1,87 @@
 library(tidyverse)
-library(magrittr)
 
-options(dplyr.print_max = 1e9)
-
-output_dir <- "/workspaces/class/Graphs"
-if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
-
-data <- read_csv("/workspaces/class/Data/cps_00008.csv.gz")
-colnames(data) <- tolower(colnames(data))
-
-data <- data %>%
-  filter((age >= 16) & (age <= 64),
-         (paidhour == 1) | (paidhour == 2)) %>%
-  mutate(educgroup = 1 * (educ <= 60) +
-           2 * ((educ >= 70) & (educ <= 73)) +
-           3 * ((educ >= 80) & (educ <= 100)) +
-           4 * (educ >= 110))
-table(data$educ, data$educgroup)
-
-data <- data %>%
-  mutate(
-         hourlywage = case_when(
-                                (earnweek > 0) & (earnweek < 9999.99) &
-                                  (uhrswork1 > 0) & (uhrswork1 < 997) &
-                                  (paidhour == 1) ~ earnweek / uhrswork1,
-                                (hourwage > 0) & (hourwage < 99) & (paidhour == 2) ~ hourwage,
-                                TRUE ~ NA_real_),
-         log_hourlywage = log(hourlywage)) %>%
-  filter(!is.na(log_hourlywage))
-
-summarize_by_group <- function(data, variable_group, variable_values, wt) {
-
-  var_group_sym <- rlang::sym(variable_group)
-  var_values_sym <- rlang::sym(variable_values)
-  wt_sym <- rlang::sym(wt)
-
-  data <- data %>% mutate(!!var_group_sym := as.character(!!var_group_sym))
-
-  data_temp <- data %>%
-    select(!!var_group_sym, !!var_values_sym, !!wt_sym) %>%
-    na.omit()
-
-  data_temp_group <- data_temp %>%
-    group_by(!!var_group_sym) %>%
-    summarize(mean = weighted.mean(!!var_values_sym, w = !!wt_sym, na.rm = TRUE),
-              freq = sum(!!wt_sym, na.rm = TRUE),
-              n = n(), .groups = 'drop')
-
-  data_temp_total <- summarize(data_temp, 
-                               mean = weighted.mean(!!var_values_sym, w = !!wt_sym, na.rm = TRUE),
-                               freq = sum(!!wt_sym, na.rm = TRUE),
-                               n = n()) %>%
-    mutate(!!var_group_sym := "Total")
-
-  out <- bind_rows(data_temp_group, data_temp_total)
-
-  return(out)
+# Define the output directory and ensure it exists
+output_dir <- "/workspaces/class/Graphs" # Adjust this path to your specific directory
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir, recursive = TRUE)
 }
 
-summarize_by_group(data, "paidhour", "hourlywage", wt = "earnwt")
+# Load and preprocess the data
+data <- read_csv("/workspaces/class/Data/cps_00008.csv.gz") %>%
+  mutate(across(everything(), as.character), 
+         across(c(AGE, UHRSWORK1, EDUC, EARNWT, HOURWAGE, PAIDHOUR, EARNWEEK, WSREGSHFT, WSSUPPWT), as.numeric),
+         OCC1990 = as.character(OCC1990),
+         EDUCGROUP = case_when(
+           EDUC <= 60 ~ "Less than High School",
+           EDUC >= 70 & EDUC <= 73 ~ "High School Graduates",
+           EDUC >= 80 & EDUC <= 100 ~ "Some College",
+           EDUC >= 110 ~ "College",
+           TRUE ~ NA_character_
+         ),
+         HOURLYWAGE = case_when(
+           EARNWEEK > 0 & EARNWEEK < 9999.99 & UHRSWORK1 > 0 & UHRSWORK1 < 997 & PAIDHOUR == 1 ~ EARNWEEK / UHRSWORK1,
+           HOURWAGE > 0 & HOURWAGE < 99 & PAIDHOUR == 2 ~ HOURWAGE,
+           TRUE ~ NA_real_
+         ),
+         LOG_HOURLYWAGE = if_else(!is.na(HOURLYWAGE), log(HOURLYWAGE), NA_real_),
+         AGEGROUP = case_when(
+           AGE >= 16 & AGE <= 20 ~ "16-20",
+           AGE >= 21 & AGE <= 30 ~ "21-30",
+           AGE >= 31 & AGE <= 40 ~ "31-40",
+           AGE >= 41 & AGE <= 50 ~ "41-50",
+           AGE >= 51 & AGE <= 64 ~ "51-64",
+           TRUE ~ NA_character_
+         ),
+         IRREGULAR = if_else(WSREGSHFT == 1, "Irregular", "Regular"),
+         GOODOCC = if_else(OCC1990 %in% c('95', '276', '436', '804'), 1, 0)) %>%
+  filter(!is.na(HOURLYWAGE))
 
+# Ensure OCC1990 codes are correctly mapped to occupation names
 data <- data %>%
-  filter(wsregshft <= 2) %>%
-  mutate(agegroup = case_when(
-    (age >= 16) & (age <= 20) ~ 1,
-    (age >= 21) & (age <= 30) ~ 2,
-    (age >= 31) & (age <= 40) ~ 3,
-    (age >= 41) & (age <= 50) ~ 4,
-    (age >= 51) & (age <= 64) ~ 5,
-    TRUE ~ NA_real_
-  ),
-  irregular = if_else(wsregshft == 1, 1, 0),
-  goodocc   = if_else(occ1990 %in% c(95, 276, 436, 804), 1, 0))
+  mutate(OCC1990 = case_when(
+    OCC1990 == "95" ~ "Registered Nurse",
+    OCC1990 == "276" ~ "Cashiers",
+    OCC1990 == "436" ~ "Cooks",
+    OCC1990 == "804" ~ "Truck Drivers",
+    TRUE ~ "Other"
+  ))
 
+# Generate tables with annotated groups
 
-summarize_by_group(data, "educgroup", "irregular", wt = "wssuppwt")
-summarize_by_group(data, "agegroup", "irregular", wt = "wssuppwt")
+# 1. Fraction of workers in each education group with irregular work shifts
+education_irregular <- data %>%
+  group_by(EDUCGROUP, IRREGULAR) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  pivot_wider(names_from = IRREGULAR, values_from = Count, values_fill = list(Count = 0)) %>%
+  mutate(Fraction_Irregular = `Irregular` / (`Irregular` + `Regular`))
+write_csv(education_irregular, paste0(output_dir, "/education_irregular.csv"))
 
-table_double_means <- function(data, variable_a, variable_b, variable_values, wt) {
-  data_temp <- data[ , c(variable_a, variable_b, variable_values, wt), drop = FALSE] %>%
-    na.omit()
-  names(data_temp) <- c("var_a", "var_b", "var_values", "var_wt")
-  agg_double <- function(data, replace_var_a = NULL, replace_var_b = NULL) {
-    if (!is.null(replace_var_a)) { data <- data %>%
-        mutate(var_a = replace_var_a)
-    }
-    if (!is.null(replace_var_b)) {
-      data <- data %>% 
-        mutate(var_b = replace_var_b)
-    }
+# 2. Fraction of workers in each age group with irregular work shifts
+age_irregular <- data %>%
+  group_by(AGEGROUP, IRREGULAR) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  pivot_wider(names_from = IRREGULAR, values_from = Count, values_fill = list(Count = 0)) %>%
+  mutate(Fraction_Irregular = `Irregular` / (`Irregular` + `Regular`))
+write_csv(age_irregular, paste0(output_dir, "/age_irregular.csv"))
 
-    data <- data %>%
-      group_by(var_a, var_b) %>%
-      summarize(var_mean = weighted.mean(var_values, w = var_wt)) %>%
-      ungroup() %>%
-      mutate(across(c(var_a, var_b), as.character))
-    return(data)
-  }
+# 3. Mean hourly wage rate by regularity of work shifts, by education group
+wage_by_education_regularity <- data %>%
+  group_by(EDUCGROUP, IRREGULAR) %>%
+  summarise(Mean_Hourly_Wage = mean(HOURLYWAGE, na.rm = TRUE), .groups = 'drop')
+write_csv(wage_by_education_regularity, paste0(output_dir, "/wage_by_education_regularity.csv"))
 
-  data_double <- data_temp %>%
-    agg_double()
-  data_marginal_a <- data_temp %>%
-    agg_double(replace_var_b = "Total")
-  data_marginal_b <- data_temp %>%
-    agg_double(replace_var_a = "Total")
-  data_grand_mean <- data_temp %>%
-    agg_double(replace_var_a = "Total", replace_var_b = "Total")
-  table_double <- data_double %>%
-    bind_rows(data_marginal_a,
-              data_marginal_b,
-              data_grand_mean) %>%
-    pivot_wider(names_from = var_b, names_prefix = "var_b_", values_from = var_mean)
+# 4. Fraction of workers with irregular work shifts in specified occupations
+specified_occupations_irregular <- data %>%
+  filter(GOODOCC == 1) %>%
+  group_by(OCC1990, IRREGULAR) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  pivot_wider(names_from = IRREGULAR, values_from = Count, values_fill = list(Count = 0)) %>%
+  mutate(Fraction_Irregular = `Irregular` / (`Irregular` + `Regular`))
+write_csv(specified_occupations_irregular, paste0(output_dir, "/specified_occupations_irregular.csv"))
 
-  names(table_double) <- gsub("var_b", variable_b, names(table_double), fixed = TRUE)
-  names(table_double)[1] <- variable_a
-  return(table_double)
-}
-
-tabulate_double_means(data, "educgroup", "irregular", "log_hourlywage", "earnwt")
-
-occupations <- c("registered nurse" = 95,
-                 "cashiers" = 276,
-                 "cooks" = 436,
-                 "truck drivers" = 804)
-occupations_tibble <- tibble(occupations, names(occupations)) %>%
-  rename(occ1990 = occupations,
-         occupation=`names(occupations)`) %>%
-  mutate(occ1990 = as.character(occ1990))
-mutate(occ1990 = as.character(occ1990))
-
-summarize_by_group(data %>% filter(goodocc == 1),
-                   "occ1990", "irregular", wt = "wssuppwt") %>%
-  left_join(occupations_tibble) %>%
-  relocate(occ1990, occupation)
-
-tabulate_double_means(data %>% filter(goodocc == 1),
-                      "occ1990", "irregular", "log_hourlywage", "earnwt") %>%
-  left_join(occupations_tibble) %>%
-  relocate(occ1990, occupation)
+# 5. Mean hourly wage rate of workers with regular and irregular work shifts for each of the specified occupations
+wage_by_occupation_regularity <- data %>%
+  filter(GOODOCC == 1) %>%
+  group_by(OCC1990, IRREGULAR) %>%
+  summarise(Mean_Hourly_Wage = mean(HOURLYWAGE, na.rm = TRUE), .groups = 'drop')
+write_csv(wage_by_occupation_regularity, paste0(output_dir, "/wage_by_occupation_regularity.csv"))
