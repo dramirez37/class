@@ -1,12 +1,10 @@
 library(tidyverse)
 
-# Define the output directory and ensure it exists
-output_dir <- "/workspaces/class/Graphs" # Adjust this path to your specific directory
+output_dir <- "/workspaces/class/Graphs"
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
 }
 
-# Load and preprocess the data
 data <- read_csv("/workspaces/class/Data/cps_00008.csv.gz") %>%
   mutate(across(everything(), as.character), 
          across(c(AGE, UHRSWORK1, EDUC, EARNWT, HOURWAGE, PAIDHOUR, EARNWEEK, WSREGSHFT, WSSUPPWT), as.numeric),
@@ -36,7 +34,6 @@ data <- read_csv("/workspaces/class/Data/cps_00008.csv.gz") %>%
          GOODOCC = if_else(OCC1990 %in% c('95', '276', '436', '804'), 1, 0)) %>%
   filter(!is.na(HOURLYWAGE))
 
-# Ensure OCC1990 codes are correctly mapped to occupation names
 data <- data %>%
   mutate(OCC1990 = case_when(
     OCC1990 == "95" ~ "Registered Nurse",
@@ -46,9 +43,6 @@ data <- data %>%
     TRUE ~ "Other"
   ))
 
-# Generate tables with annotated groups
-
-# 1. Fraction of workers in each education group with irregular work shifts
 education_irregular <- data %>%
   group_by(EDUCGROUP, IRREGULAR) %>%
   summarise(Count = n(), .groups = 'drop') %>%
@@ -56,7 +50,6 @@ education_irregular <- data %>%
   mutate(Fraction_Irregular = `Irregular` / (`Irregular` + `Regular`))
 write_csv(education_irregular, paste0(output_dir, "/education_irregular.csv"))
 
-# 2. Fraction of workers in each age group with irregular work shifts
 age_irregular <- data %>%
   group_by(AGEGROUP, IRREGULAR) %>%
   summarise(Count = n(), .groups = 'drop') %>%
@@ -64,13 +57,11 @@ age_irregular <- data %>%
   mutate(Fraction_Irregular = `Irregular` / (`Irregular` + `Regular`))
 write_csv(age_irregular, paste0(output_dir, "/age_irregular.csv"))
 
-# 3. Mean hourly wage rate by regularity of work shifts, by education group
 wage_by_education_regularity <- data %>%
   group_by(EDUCGROUP, IRREGULAR) %>%
   summarise(Mean_Hourly_Wage = mean(HOURLYWAGE, na.rm = TRUE), .groups = 'drop')
 write_csv(wage_by_education_regularity, paste0(output_dir, "/wage_by_education_regularity.csv"))
 
-# 4. Fraction of workers with irregular work shifts in specified occupations
 specified_occupations_irregular <- data %>%
   filter(GOODOCC == 1) %>%
   group_by(OCC1990, IRREGULAR) %>%
@@ -79,7 +70,6 @@ specified_occupations_irregular <- data %>%
   mutate(Fraction_Irregular = `Irregular` / (`Irregular` + `Regular`))
 write_csv(specified_occupations_irregular, paste0(output_dir, "/specified_occupations_irregular.csv"))
 
-# 5. Mean hourly wage rate of workers with regular and irregular work shifts for each of the specified occupations
 wage_by_occupation_regularity <- data %>%
   filter(GOODOCC == 1) %>%
   group_by(OCC1990, IRREGULAR) %>%
