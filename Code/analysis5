@@ -1,0 +1,87 @@
+""""Analysis Portion of Data Explorer: The Mincer Earnings Function Over Time"""
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+data = pd.read_csv('/workspaces/class/Data/cps_00010.csv.gz')
+
+data_filtered = data[(data['AGE'] >= 21) & (data['AGE'] <= 64) &
+                     (data['YEAR'] >= 1964) &
+                     (data['INCWAGE'] > 0) & (data['INCWAGE'] < 99999998) &
+                     (data['WKSWORK2'] > 1) & (data['WKSWORK2'] < 6) &
+                     (data['ASECWT'] >= 0)]
+
+data_filtered['weeks'] = data_filtered['WKSWORK2'].map({1: 7, 2: 20, 3: 33, 4: 43.5, 5: 48.5, 6: 51})
+data_filtered['lweekly'] = np.log(data_filtered['INCWAGE'] / data_filtered['weeks'])
+
+educ_map = {2: 0, 10: 2.5, 11: 1, 12: 2, 13: 3, 14: 4, 20: 5.5, 21: 5, 22: 6, 30: 7.5, 31: 7, 32: 8,
+            40: 9, 50: 10, 60: 11, 70: 12, 71: 12, 72: 12, 73: 12, 80: 13, 81: 13, 90: 14, 91: 14,
+            92: 14, 100: 15, 110: 16, 111: 16, 120: 18, 121: 17, 122: 18, 123: 18, 124: 19, 125: 20}
+
+data_filtered['yrschool'] = data_filtered['EDUC'].map(educ_map)
+data_filtered['exper'] = data_filtered['AGE'] - data_filtered['yrschool'] - 6
+data_filtered['exper2'] = data_filtered['exper'] ** 2
+
+reg_results = []
+years = range(1964, 2023)
+for year in years:
+    for sex in [1, 2]:
+        data_year_sex = data_filtered[(data_filtered['YEAR'] == year) & (data_filtered['SEX'] == sex)]
+
+        data_year_sex = data_year_sex.dropna(subset=['yrschool', 'exper', 'exper2', 'lweekly'])
+        data_year_sex = data_year_sex[np.isfinite(data_year_sex['yrschool']) &
+                                      np.isfinite(data_year_sex['exper']) &
+                                      np.isfinite(data_year_sex['exper2']) &
+                                      np.isfinite(data_year_sex['lweekly'])]
+
+        if not data_year_sex.empty:
+            X = data_year_sex[['yrschool', 'exper', 'exper2']]
+            X = sm.add_constant(X)
+            y = data_year_sex['lweekly']
+            weights = data_year_sex['ASECWT']
+
+            model = sm.OLS(y, X, weights=weights)
+            results = model.fit()
+
+            rschool = results.params.get('yrschool', np.nan)
+            rexper = results.params.get('exper', np.nan) + 2 * 10 * results.params.get('exper2', np.nan)
+
+            reg_results.append({'year': year, 'sex': sex, 'rschool': rschool, 'rexper': rexper})
+
+reg_results_df = pd.DataFrame(reg_results)
+
+sex_labels = {1: 'Men', 2: 'Women'}
+reg_results_df['sex_label'] = reg_results_df['sex'].map(sex_labels)
+
+sex_labels = {1: 'Men', 2: 'Women'}
+reg_results_df['sex_label'] = reg_results_df['sex'].map(sex_labels)
+
+plt.figure(figsize=(14, 7))
+schooling_plot = sns.lineplot(data=reg_results_df, x='year', y='rschool', hue='sex_label', style='sex_label', markers=True, dashes=False)
+plt.title('Rate of Return to Schooling Over Time')
+plt.xlabel('Year')
+plt.ylabel('Rate of Return to Schooling')
+
+handles, labels = schooling_plot.get_legend_handles_labels()
+handles = [h for h, l in zip(handles, labels) if l in sex_labels.values()]
+labels = [l for l in labels if l in sex_labels.values()]
+schooling_plot.legend(handles, labels, title='Sex')
+
+plt.grid(True)
+plt.show()
+
+plt.figure(figsize=(14, 7))
+experience_plot = sns.lineplot(data=reg_results_df, x='year', y='rexper', hue='sex_label', style='sex_label', markers=True, dashes=False)
+plt.title('Rate of Return to Experience Over Time')
+plt.xlabel('Year')
+plt.ylabel('Rate of Return to Experience')
+
+handles, labels = experience_plot.get_legend_handles_labels()
+handles = [h for h, l in zip(handles, labels) if l in sex_labels.values()]
+labels = [l for l in labels if l in sex_labels.values()]
+experience_plot.legend(handles, labels, title='Sex')
+
+plt.grid(True)
+plt.show()
