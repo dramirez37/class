@@ -5,22 +5,21 @@ results <- oaxaca(
             foreign.born | LTHS + some.college + college + advanced.degree,
   data = chicago,
   R = 1000,
-  group.weight = -1
+  group.weight = c(0.5, 0.5)
 )
 
 plot(results, components = c("endowments", "coefficients"))
 
-plot(results, decomposition = "twofold", group.weight = -1)
+plot(results, decomposition = "twofold", group.weight = 0.5)
 
-
-plot(results, decomposition = "twofold", group.weight = -1, unexplained.split = TRUE,
+plot(results, decomposition = "twofold", group.weight = 0.5, unexplained.split = TRUE,
      components = c("unexplained A", "unexplained B"), 
      component.labels = c("unexplained A" = "In Favor of Natives", "unexplained B" = "Against the Foreign-Born"),
      variables = c("age", "female", "college"),
      variable.labels = c("age" = "Years of Age", "female" = "Female", "college" = "College Education"))
 
 
-plot(results, decomposition = "twofold", group.weight = -1, unexplained.split = TRUE,
+plot(results, decomposition = "twofold", group.weight = 0.5, unexplained.split = TRUE,
      components = c("unexplained A", "unexplained B"), 
      component.labels = c("unexplained A" = "In Favor of Natives", "unexplained B" = "Against the Foreign-Born"),
      component.left = TRUE,
