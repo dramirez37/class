@@ -1,0 +1,36 @@
+library(oaxaca)
+
+results <- oaxaca(
+  formula = ln.real.wage ~ age + female + LTHS + some.college + college + advanced.degree |
+            foreign.born | LTHS + some.college + college + advanced.degree,
+  data = chicago,
+  R = 1000,
+  group.weight = -1
+)
+
+plot(results, components = c("endowments", "coefficients"))
+
+plot(results, decomposition = "twofold", group.weight = -1)
+
+
+plot(results, decomposition = "twofold", group.weight = -1, unexplained.split = TRUE,
+     components = c("unexplained A", "unexplained B"), 
+     component.labels = c("unexplained A" = "In Favor of Natives", "unexplained B" = "Against the Foreign-Born"),
+     variables = c("age", "female", "college"),
+     variable.labels = c("age" = "Years of Age", "female" = "Female", "college" = "College Education"))
+
+
+plot(results, decomposition = "twofold", group.weight = -1, unexplained.split = TRUE,
+     components = c("unexplained A", "unexplained B"), 
+     component.labels = c("unexplained A" = "In Favor of Natives", "unexplained B" = "Against the Foreign-Born"),
+     component.left = TRUE,
+     variables = c("age", "female", "college"),
+     variable.labels = c("age" = "Years of Age", "female" = "Female", "college" = "College Education"))
+
+cat("Mean ln(real wage) in Group A (Natives):", results$y$y.A, "\n")
+cat("Mean ln(real wage) in Group B (Foreign-born):", results$y$y.B, "\n")
+cat("Difference in mean ln(real wages):", results$y$y.diff, "\n")
+cat("Converted mean wage in Group A (Natives): $", exp(results$y$y.A), "\n")
+cat("Converted mean wage in Group B (Foreign-born): $", exp(results$y$y.B), "\n")
+cat("Difference in converted mean wages: $", exp(results$y$y.diff), "\n")
+print(results)
