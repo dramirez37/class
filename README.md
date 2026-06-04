@@ -97,18 +97,6 @@ Key skills demonstrated:
 - Regression-based applied econometrics
 - Reproducible table and figure generation
 
-## Suggested resume framing
-
-```latex
-\resumeSubheading{Applied Econometrics and Labor Microdata Portfolio}{Fall 2024}{Python, pandas, statsmodels, IPUMS/CPS Microdata, Data Visualization}{}
-  \begin{itemize}[leftmargin=0.25in]
-    \resumeItem{Built a portfolio of applied econometric analyses using large CPS/IPUMS-style microdata extracts, including labor-force participation, low-wage workforce composition, night-shift wage differentials, college-major earnings, and Mincer earnings-function trends.}
-    \resumeItem{Cleaned and recoded survey variables across age, gender, education, race, occupation, wages, hours, and survey weights to construct reproducible analysis panels and weighted descriptive statistics.}
-    \resumeItem{Estimated yearly Mincer-style earnings regressions from 1964--2022 using Python and statsmodels to track returns to schooling and experience over time by gender.}
-    \resumeItem{Generated reporting-ready tables and visualizations for wage distributions, demographic composition, earnings gaps, and labor-market participation patterns.}
-  \end{itemize}
-```
-
 ## Reproducibility notes
 
 The scripts expect CPS/IPUMS-style input files in local `Data/` or `Data2/` folders and save generated tables or figures into `Graphs/` or `Graphs2/`. File paths may need to be adjusted before running outside the original Codespaces/workspace environment.
